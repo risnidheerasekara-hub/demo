@@ -77,11 +77,6 @@ public class DemoApplication {
 		// create a list of messages
 		List<ServiceBusMessage> listOfMessages = createMessages();
 
-		// We try to add as many messages as a batch can fit based on the maximum size
-		// and send to Service Bus when
-		// the batch can hold no more messages. Create a new batch for next set of
-		// messages and repeat until all
-		// messages are sent.
 		for (ServiceBusMessage message : listOfMessages) {
 			if (messageBatch.tryAddMessage(message)) {
 				continue;

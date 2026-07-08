@@ -1,3 +1,2 @@
 azure.servicebus.connection-string=${SERVICE_BUS_CONNECTION_STRING}
 azure.servicebus.topic-name=${SERVICE_BUS_TOPIC_NAME}
-azure.servicebus.subscription-name=${SERVICE_BUS_SUBSCRIPTION_NAME}
