@@ -32,18 +32,6 @@ public class DemoApplication {
 	}
 
 	@Bean
-	ServiceBusSenderClient senderClient(
-			@Value("${azure.servicebus.connection-string}") String connectionString,
-			@Value("${azure.servicebus.topic-name}") String topicName) {
-
-		return new ServiceBusClientBuilder()
-				.connectionString(connectionString)
-				.sender()
-				.topicName(topicName)
-				.buildClient();
-	}
-
-	@Bean
 	CommandLineRunner commandLineRunner() {
 		return args -> {
 			sendMessage();
