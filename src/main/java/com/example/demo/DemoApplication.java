@@ -3,39 +3,60 @@ package com.example.demo;
 import java.util.Arrays;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+
 import com.azure.messaging.servicebus.*;
 
 @SpringBootApplication
 public class DemoApplication {
-	@Value("${azure.servicebus.connection-string}")
-    private String connectionString;
 
-    @Value("${azure.servicebus.topic-name}")
-    private String topicName;
+	private static final Logger logger = LoggerFactory.getLogger(DemoApplication.class);
 
+	@Value("${azure.servicebus.topic-name}")
+	private String topicName;
+
+	private final ServiceBusSenderClient senderClient;
+
+	DemoApplication(ServiceBusSenderClient senderClient) {
+		this.senderClient = senderClient;
+	}
 
 	public static void main(String[] args) throws InterruptedException {
 		SpringApplication.run(DemoApplication.class, args);
-		DemoApplication app = new DemoApplication();
-		app.sendMessage();
-
 	}
 
-	void sendMessage() {
-		// create a Service Bus Sender client for the topic
-		ServiceBusSenderClient senderClient = new ServiceBusClientBuilder()
+	@Bean
+	ServiceBusSenderClient senderClient(
+			@Value("${azure.servicebus.connection-string}") String connectionString,
+			@Value("${azure.servicebus.topic-name}") String topicName) {
+
+		return new ServiceBusClientBuilder()
 				.connectionString(connectionString)
 				.sender()
 				.topicName(topicName)
 				.buildClient();
+	}
 
-		// send one message to the topic
-		senderClient.sendMessage(new ServiceBusMessage("Hello, World!"));
-		System.out.println("Sent a single message to the topic: " + topicName);
-		senderClient.close();
+	@Bean
+	CommandLineRunner commandLineRunner() {
+		return args -> {
+			sendMessage();
+			sendMessageBatch();
+		};
+	}
+
+	void sendMessage() {
+
+		ServiceBusMessage message = new ServiceBusMessage("Order Created");
+		senderClient.sendMessage(message);
+		logger.info("Sent a single message to the topic: {}", topicName);
+
 	}
 
 	static List<ServiceBusMessage> createMessages() {
@@ -49,12 +70,6 @@ public class DemoApplication {
 	}
 
 	void sendMessageBatch() {
-		// create a Service Bus Sender client for the topic
-		ServiceBusSenderClient senderClient = new ServiceBusClientBuilder()
-				.connectionString(connectionString)
-				.sender()
-				.topicName(topicName)
-				.buildClient();
 
 		// Creates an ServiceBusMessageBatch where the ServiceBus.
 		ServiceBusMessageBatch messageBatch = senderClient.createMessageBatch();
@@ -74,25 +89,23 @@ public class DemoApplication {
 
 			// The batch is full, so we create a new batch and send the batch.
 			senderClient.sendMessages(messageBatch);
-			System.out.println("Sent a batch of messages to the topic: " + topicName);
+			logger.info("Sent a batch of messages to the topic: {}", topicName);
 
 			// create a new batch
 			messageBatch = senderClient.createMessageBatch();
 
 			// Add that message that we couldn't before.
 			if (!messageBatch.tryAddMessage(message)) {
-				System.err.printf("Message is too large for an empty batch. Skipping. Max size: %s.",
+				logger.error("Message is too large for an empty batch. Skipping. Max size: {}",
 						messageBatch.getMaxSizeInBytes());
 			}
 		}
 
 		if (messageBatch.getCount() > 0) {
 			senderClient.sendMessages(messageBatch);
-			System.out.println("Sent a batch of messages to the topic: " + topicName);
+			logger.info("Sent a batch of messages to the topic: {}", topicName);
 		}
 
-		// close the client
-		senderClient.close();
 	}
 
 }

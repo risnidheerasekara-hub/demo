@@ -44,13 +44,6 @@
 
     <dependencies>
 
-        <!-- Spring Boot Web -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-
-
         <!-- Azure Service Bus Starter -->
         <dependency>
             <groupId>com.azure.spring</groupId>
