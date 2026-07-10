@@ -2,6 +2,8 @@ package com.example.demo;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,50 +36,62 @@ public class DemoApplication {
 	@Bean
 	CommandLineRunner commandLineRunner() {
 		return args -> {
-			sendMessage();
+			sendMessage("order-123", "Order Created");
 			sendMessageBatch();
 		};
 	}
 
-	void sendMessage() {
+	void sendMessage(String sessionId, String messageContent) {
 
-		ServiceBusMessage message = new ServiceBusMessage("Order Created");
+		ServiceBusMessage message = new ServiceBusMessage(messageContent);
+		message.setSessionId(sessionId);
 		senderClient.sendMessage(message);
-		logger.info("Sent a single message to the topic: {}", topicName);
+		logger.info("Sent a single message with sessionId '{}' to the topic: {}", sessionId, topicName);
 
-	}
-
-	static List<ServiceBusMessage> createMessages() {
-		// create a list of messages and return it to the caller
-		ServiceBusMessage[] messages = {
-				new ServiceBusMessage("First message"),
-				new ServiceBusMessage("Second message"),
-				new ServiceBusMessage("Third message")
-		};
-		return Arrays.asList(messages);
 	}
 
 	void sendMessageBatch() {
 
-		// Creates an ServiceBusMessageBatch where the ServiceBus.
-		ServiceBusMessageBatch messageBatch = senderClient.createMessageBatch();
-
-		// create a list of messages
 		List<ServiceBusMessage> listOfMessages = createMessages();
 
-		for (ServiceBusMessage message : listOfMessages) {
+		Map<String, List<ServiceBusMessage>> messagesBySession = listOfMessages.stream()
+				.collect(Collectors.groupingBy(ServiceBusMessage::getSessionId));
+
+		for (List<ServiceBusMessage> sessionMessages : messagesBySession.values()) {
+			sendBatchForSession(sessionMessages);
+		}
+
+	}
+
+	static List<ServiceBusMessage> createMessages() {
+		
+		ServiceBusMessage[] messages = {
+				withSessionId(new ServiceBusMessage("First message"), "order-123"),
+				withSessionId(new ServiceBusMessage("Second message"), "order-123"),
+				withSessionId(new ServiceBusMessage("Third message"), "order-456")
+		};
+		return Arrays.asList(messages);
+	}
+
+	private static ServiceBusMessage withSessionId(ServiceBusMessage message, String sessionId) {
+		message.setSessionId(sessionId);
+		return message;
+	}
+
+	private void sendBatchForSession(List<ServiceBusMessage> sessionMessages) {
+
+		ServiceBusMessageBatch messageBatch = senderClient.createMessageBatch();
+
+		for (ServiceBusMessage message : sessionMessages) {
 			if (messageBatch.tryAddMessage(message)) {
 				continue;
 			}
 
-			// The batch is full, so we create a new batch and send the batch.
 			senderClient.sendMessages(messageBatch);
 			logger.info("Sent a batch of messages to the topic: {}", topicName);
 
-			// create a new batch
 			messageBatch = senderClient.createMessageBatch();
 
-			// Add that message that we couldn't before.
 			if (!messageBatch.tryAddMessage(message)) {
 				logger.error("Message is too large for an empty batch. Skipping. Max size: {}",
 						messageBatch.getMaxSizeInBytes());
